@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block title %}LuxuryWheels Home{% endblock %}
+
+{% block content %}
+<br>
+<div class="container">
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4 justify-content-center">
+        <!-- Loop to display vehicles -->
+        {% for vehicle in vehicles %}
+        <div class="vehicle-cars" data-model="{{ vehicle.type_vehicle }}">
+            <div class="card" style="width: 18rem;">
+                <!-- Vehicle image -->
+                <img class="card-img-top" src="{{ url_for('static', filename='vehicles/' + vehicle.image.split('/')[-1]) }}" alt="{{ vehicle.brand }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ vehicle.model }}</h5>
+                    <p class="card-text">Vehicle description.</p>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <!-- Vehicle details -->
+                    <li class="list-group-item">Price per day: {{ vehicle.price_day }} €</li>
+                    <li class="list-group-item">Vehicle type: {{ vehicle.type_vehicle }}</li>
+                    <li class="list-group-item">Seats: {{ vehicle.passengers_number }}</li>
+                    <li class="list-group-item">Transmission: {{ vehicle.transmission }}</li>
+                    <li class="list-group-item">Fuel: {{ vehicle.fuel }}</li>
+                    <li class="list-group-item">Horsepower: {{ vehicle.horsepower }}</li>
+                    <li class="list-group-item">Engine displacement: {{ vehicle.engine_displacement }}cc</li>
+                </ul>
+                <div class="card-body">
+                     <!-- Check if vehicle is available -->
+                    {% if current_date > vehicle.next_maintenance %}
+                        <span class="badge bg-danger">Unavailable</span>
+                    {% elif current_date > vehicle.next_inspection %}
+                        <span class="badge bg-danger">Unavailable</span>
+                    {% else %}
+                    <!-- Reserve button appears only if the vehicle is available -->
+                        <button type="button"
+                                class="btn btn-outline-success"
+                                data-bs-toggle="modal"
+                                data-bs-target="#reg-modal-{{ vehicle.id }}">
+                            Reserve
+                        </button>
+                    {% endif %}
+                    </div>
+                </div>
+        </div>
+        {% endfor %}
+
+        {% for vehicle in vehicles %}
+        <!-- Reservation Modal -->
+        <div class="modal fade" id="reg-modal-{{ vehicle.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="reg-modal-title-{{ vehicle.id }}">Reserving {{ vehicle.model }}, {{ vehicle.price_day }}€ per day.</h5>
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                aria-label="Close">
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <!-- Display unavailable dates -->
+                        <p>Chose the dates for the reservation:
+                        <a href="#"
+                             role="button"
+                             class="btn btn-info btn-sm"
+                             title="{{vehicle.model}} Unavailable dates  "
+                             data-bs-toggle="popover"
+                             data-bs-content="
+                                {% for date in unavailable_dates_by_vehicle.get(vehicle.id, []) %}
+                                    {{ date }}<br>
+                                {% endfor %}">Unavailable dates</a></p>
+                        <!-- Date selection (start and end dates) -->
+                        <input type="date" class="form-control" min="{{ current_date }}" id="modal-bg-date-{{ vehicle.id }}" data-vehicle-id="{{ vehicle.id }}"
+                               data-blocked-dates='{{ vehicle.reserve_dates|tojson|safe if vehicle.reserve_dates else "[]" }}'>
+                        <br>
+                        <label for="modal-end-date-{{ vehicle.id }}" class="form-label">End Date:</label>
+                        <input type="date" class="form-control" id="modal-end-date-{{ vehicle.id }}" data-vehicle-id="{{ vehicle.id }}"
+                               data-blocked-dates='{{ vehicle.reserve_dates|tojson|safe if vehicle.reserve_dates else "[]" }}'>
+                        <br>
+                        <!-- Date confirmation button -->
+                        <button class="btn btn-outline-success"
+                                id="confirm-dates-{{ vehicle.id }}">
+                            Confirm dates
+                        </button>
+
+                    </div>
+
+                    <!-- Total price display -->
+                    <div id="total-reservation-{{ vehicle.id }}" style="margin-top: 10px; margin-left: 10px; margin-bottom: 10px;">
+                        <strong>Total:</strong> <span id="total-price-{{ vehicle.id }}">0</span> €
+                    </div>
+                    <!-- Button to proceed to payment -->
+                    <div class="modal-footer">
+                        <button class="btn btn-primary"
+                                id="proceed-payment-{{ vehicle.id }}"
+                                data-bs-toggle="modal"
+                                data-bs-target="#pay-modal-{{ vehicle.id }}"
+                                disabled>
+                            Proceed to Payment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Payment Modal -->
+        <div class="modal fade" id="pay-modal-{{ vehicle.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"
+                            id="pay-modal-title-{{ vehicle.id }}"></h5>
+                            <strong>Reserving {{ vehicle.model }}</strong>
+                        <button aria-label="Close"
+                                class="btn-close"
+                                data-bs-dismiss="modal"
+                                type="button">
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <strong>Reservation info:</strong><br>
+                        <p>{{ vehicle.brand }} {{ vehicle.model }}.</p>
+                        <h5>Dates</h5>
+                        <h6>From:</h6><span id="start-date-{{ vehicle.id }}"></span>
+                        <h6>To:</h6><span id="end-date-{{ vehicle.id }}"></span>
+                        <h6>Total:</h6><span id="pay-price-{{ vehicle.id }}"> 0 </span> €.
+                        <br>
+                        <br>
+                        <h5>Terms of Use - LUXURY WHEELS</h5>
+                        <br>
+                        <p>1. Introduction <br>
+                            Welcome to LUXURY WHEELS. By using our services, you agree to the following terms and conditions.<br>
+                            2. Rental Requirements<br>
+                            The driver must be at least 18 years old.
+                            A valid driver's license must be presented at the time of vehicle delivery. Otherwise, the rental will be canceled without a refund.<br>
+                            3. Payments<br>
+                            Payment must be made before the vehicle is delivered.
+                            Payment is only available via Multibanco.<br>
+                            4. Customer Responsibilities<br>
+                            The customer is responsible for any fines, damages, or infractions during the rental period.
+                            Insurance may cover certain damages, but the customer may be responsible for applicable deductibles.<br>
+                            5. Cancellations and Refunds<br>
+                            Cancellations made more than 48 hours in advance may be eligible for a full or partial refund.
+                            Last-minute cancellations may not be refundable.<br>
+                            6. Acceptance of Terms<br>
+                            By clicking the "Payment" button, you confirm that you have read and accept these Terms of Use.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary"
+                                id="payment-{{ vehicle.id }}">
+                            Payment
+                        </button>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Reference Modal -->
+        <div class="modal fade" id="pay-ref-modal-{{ vehicle.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+           <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Payment by Multibanco</h4>
+                        <img src="./static/logo/mb.webp" alt="" width="50" height="50">
+                        <button aria-label="Close"
+                                class="btn-close"
+                                id="pay-ref-{{ vehicle.id }}"
+                                data-bs-dismiss="modal"
+                                type="button">
+                        </button>
+
+                    </div>
+                    <div class="modal-body">
+                        <h5> Reservation ID:</h5>
+                        <div id="reserve-id-{{ vehicle.id }}">{{ reserve.id }}</div>
+                        <h5>Entity:</h5>
+                        <div id="entity-{{ vehicle.id }}" data-entity="12345">12345</div>
+                        <h5>Reference:</h5>
+                        <div id="reference-{{ vehicle.id }}" data-reference="{{ random_reference }}">{{ random_reference }}</div>
+                        <h5>Amount:</h5>
+                        <div id="pay-ref-price-{{ vehicle.id }}"> 0 </div> € (EURO)
+
+                    </div>
+                    <div class="modal-body">
+                        <strong> After payment, please submit the receipt on the 'Reservation' page and confirm the payment. </strong>
+                        <h6>The payment will be reviewed, and if everything is in order, the reservation will remain confirmed.
+                            If the payment is not received or the receipt is incorrect within 24 hours,
+                            the confirmation tab will be reset, and you will be able to submit a new file</h6>
+
+                    </div>
+                </div>
+           </div>
+        </div>
+        {% endfor %}
+
+    </div>
+</div>
+<!-- Script to set up the popover for unavailable dates -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl, {
+                html: true,
+                container: 'body',
+                trigger: 'hover'
+            });
+        });
+    });
+</script>
+
+<!-- Validation for reservation dates -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+      document.addEventListener("change", function (event) {
+          if (event.target.matches("input[type='date']")) {
+                const blockedDatesRaw = event.target.getAttribute("data-blocked-dates");
+                const blockedDates = blockedDatesRaw && blockedDatesRaw.trim() !== "" ? JSON.parse(blockedDatesRaw) : [];
+
+                // Check if the selected date is unavailable
+              if (blockedDates.includes(event.target.value)) {
+                  alert("This data is Unavailable.Please check the vehicle's unavailability.");
+                  event.target.value = "";
+              }
+          }
+      });
+  });
+</script>
+
+<!-- Logic to confirm dates and calculate the price -->
+<script>
+    {% for vehicle in vehicles %}
+        document.getElementById('confirm-dates-{{ vehicle.id }}').addEventListener('click', function() {
+            var start_date = document.getElementById('modal-bg-date-{{ vehicle.id }}').value;
+            var end_date = document.getElementById('modal-end-date-{{ vehicle.id }}').value;
+
+
+            if (!start_date || !end_date) {
+                alert('Please, both dates must be selected.');
+                return;
+            }
+
+            const start = new Date(start_date);
+            const end = new Date(end_date);
+
+            if (end <= start) {
+                alert('Ending date must be after starting date');
+                return;
+            }
+
+            const blockedDatesRaw = document.getElementById('modal-bg-date-{{ vehicle.id }}').getAttribute("data-blocked-dates");
+            const blockedDates = blockedDatesRaw ? JSON.parse(blockedDatesRaw) : [];
+
+
+            let current_date = new Date(start);
+            let isDateBlocked = false;
+
+            while (current_date <= end) {
+                const formattedDate = current_date.toISOString().split('T')[0];
+                if (blockedDates.includes(formattedDate)) {
+                    isDateBlocked = true;
+                    break;
+                }
+                current_date.setDate(current_date.getDate() + 1);
+            }
+
+            if (isDateBlocked) {
+                alert("One or more of the selected dates are already reserved.Please check the vehicle's unavailability.");
+                return;
+            }
+
+            const days_difference = Math.ceil((end - start) / (1000 * 3600 * 24));
+            const price_per_day = {{ vehicle.price_day }};
+            const total = days_difference * price_per_day;
+
+            // Display price and dates in the payment modal
+            var start_dt = new Date(start).toLocaleDateString('en-US');
+            var end_dt = new Date(end).toLocaleDateString('en-US');
+
+            document.getElementById('total-price-{{ vehicle.id }}').textContent = total;
+            document.getElementById('pay-price-{{ vehicle.id }}').textContent = total;
+            document.getElementById('pay-ref-price-{{ vehicle.id }}').textContent = total;
+
+            document.getElementById('start-date-{{ vehicle.id }}').textContent = start_dt;
+            document.getElementById('end-date-{{ vehicle.id }}').textContent = end_dt;
+
+            document.getElementById('proceed-payment-{{ vehicle.id }}').disabled = false;
+        });
+
+        document.getElementById('payment-{{ vehicle.id }}').addEventListener('click', function() {
+            var start_date = document.getElementById('modal-bg-date-{{ vehicle.id }}').value;
+            var end_date = document.getElementById('modal-end-date-{{ vehicle.id }}').value;
+
+            const data = {
+                vehicle_id: {{ vehicle.id }},
+                vehicle_model: {{ vehicle.model | tojson }},
+                vehicle_price_day: {{ vehicle.price_day }},
+                start_date: start_date,
+                end_date: end_date,
+                total: document.getElementById('pay-price-{{ vehicle.id }}').textContent
+            };
+
+            console.log(data);
+
+            fetch('/create_reservations', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Reservation successful!');
+
+                    var reserve_modal = bootstrap.Modal.getInstance(document.getElementById('reg-modal-{{ vehicle.id }}'));
+                    reserve_modal.hide();
+
+                    var pay_modal = bootstrap.Modal.getInstance(document.getElementById('pay-modal-{{ vehicle.id }}'));
+                    if (pay_modal) {
+                        pay_modal.hide();
+                    }
+
+                    document.getElementById('reserve-id-{{ vehicle.id }}').textContent = data.reservation_id;
+
+                    var new_payModal = new bootstrap.Modal(document.getElementById('pay-ref-modal-{{ vehicle.id }}'));
+                    new_payModal.show();
+                } else {
+                    alert('There was an error with your reservation. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing your reservation. Please try again later.');
+            });
+
+        });
+            document.getElementById('pay-ref-{{ vehicle.id }}').addEventListener('click', function() {
+                var reserve_id = document.querySelector('#reserve-id-{{ vehicle.id }}').textContent.trim();
+                var entity = document.getElementById('entity-{{ vehicle.id }}').dataset.entity;
+                var reference = document.getElementById('reference-{{ vehicle.id }}').dataset.reference;
+                var amount = document.querySelector('#pay-ref-price-{{ vehicle.id }}').textContent.trim();
+
+
+            const data = {
+                reserve_id: reserve_id,
+                entity: entity,
+                reference: reference,
+                amount: amount
+            };
+
+
+            fetch('/create_payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    var payRef_modal = bootstrap.Modal.getInstance(document.getElementById('pay-ref-modal-{{ vehicle.id }}'));
+                    payRef_modal.hide();
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('An error occurred while processing your payment data. Please try again later.', error);
+                });
+            });
+
+    {% endfor %}
+</script>
+{% endblock %}

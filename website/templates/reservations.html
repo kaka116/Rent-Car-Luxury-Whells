@@ -1,0 +1,612 @@
+{%extends "base.html" %} {% block title %}LuxuryWheels Reservations{% endblock %}
+
+{% block content %}
+<h1 align="center" xmlns="http://www.w3.org/1999/html">Reservations</h1>
+<!-- Check if there are reservations -->
+    {% if reservations %}
+        <ul class="list-group list-group-flush" id="reservations">
+            {% for reservation in reservations %}
+                    <div class="card">
+                        <span class="badge bg-info">Refund unavailable if start date is in less than 48h.</span>
+                        <div class="card-body">
+                            <div>
+                                Vehicle: {{ reservation.vehicle_model }},
+                                Start date: {{ reservation.start_date }},
+                                End date: {{ reservation.end_date }}.
+                                Total: {{ reservation.total }}€
+
+                                <!-- Cancel reservation button -->
+                                <button type="button"
+                                        id='cancel-reservation-{{ reservation.id }}'
+                                        class="btn btn-outline-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#cancel-modal-{{ reservation.id }}"
+                                        {% if reservation.pay_confirmation %}disabled{% endif %}>
+                                        Cancel Reservation
+                                </button>
+                                <!-- Edit button-->
+                                <button type="button"
+                                        id='edit-reservation-{{ reservation.id }}'
+                                        class="btn btn-outline-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#edit-conf-modal-{{ reservation.id }}"
+                                        {% if reservation.pay_confirmation %}disabled{% endif %}>
+                                    Edit Reservation
+                                </button>
+                                <!-- Refund button-->
+                                <button type="button"
+                                        id="refund-{{ reservation.id }}"
+                                        class="btn btn-outline-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#refund-modal-{{ reservation.id }}"
+                                        {% if not reservation.pay_confirmation %}
+                                            disabled
+                                        {% elif reservation.refund%}
+                                            disabled
+                                        {% elif current_date == disable_refund_day %}
+                                            disabled
+                                        {% endif %}
+                                >
+                                    Refund
+                                </button>
+                                <!-- Show refund status if refund has been processed -->
+                                {%if reservation.refund %}
+                                    <span class="badge bg-success">Refunded</span>
+                                    <span style="font-size:9px">Refund may take up to 48 hours.</span>
+                                    <span style = 'font-size:9px'> Contacts available if needed.</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Show payment details if any exist -->
+                            {% if reservation.reservations_payment %}
+                                {% for payment in reservation.reservations_payment %}
+                                    <div>
+                                        Entity: {{ payment.entity }},
+                                        Reference: {{ payment.reference }},
+                                        Total: {{ payment.amount }}€
+                                        <div class="mb-3">
+                                            <label for="formFile-{{ reservation.id }}" class="form-label">Submit Payment Receipt</label>
+                                            <input class="form-control" type="file" id="formFile-{{ reservation.id }}">
+                                            <h6>File added: {{ reservation.payment_receipt.split('/')[-1] }}</h6>
+                                            <button type="button"
+                                                    id='confirm-payment-{{ reservation.id }}'
+                                                    class="btn btn-outline-success"
+                                                    onClick="confirm_payment({{ reservation.id }})"
+                                                    {% if reservation.pay_confirmation %}disabled{% endif %}>
+                                                Submit/Confirm Payment
+                                            </button>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div>No payment information available.</div>
+                            {% endif %}
+
+                            <!-- Delete confirmation Modal  -->
+                            <div class="modal fade" id="cancel-modal-{{ reservation.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="cancel-modal-title-{{ reservation.id }}">Editing {{ reservation.vehicle_model }} reservation,Total: {{ reservation.total }}, {{ reservation.vehicle_price_day }}€ per day.</h5>
+                                            <button type="button"
+                                                    class="btn-close"
+                                                    data-bs-dismiss="modal"
+                                                    aria-label="Close">
+                                            </button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Hello user, you are one click away from canceling your reservation. All data related to this reservation will be deleted.
+                                                If you want to proceed, click the Confirm button.
+                                                Otherwise, simply close this page.
+                                                Thank you.</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button"
+                                                    class="btn btn-outline-success"
+                                                    id="confirm-cancel-reservation-{{ reservation.id }}"
+                                                    onClick="delete_reservation({{reservation.id}})">
+                                                Confirm
+                                            </button>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- refund confirmation Modal  -->
+                            <div class="modal fade" id="refund-modal-{{ reservation.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="refund-modal-title-{{ reservation.id }}">Editing {{ reservation.vehicle_model }} reservation,Total: {{ reservation.total }},
+                                                {{ reservation.vehicle_price_day }}€ per day.</h5>
+                                            <button type="button"
+                                                    class="btn-close"
+                                                    data-bs-dismiss="modal"
+                                                    aria-label="Close">
+                                            </button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Hello user, you are one click away from refunding your reservation.
+                                                If you want to proceed, click the Confirm button.
+                                                Otherwise, simply close this page.
+                                                Thank you.</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button"
+                                                    class="btn btn-outline-success"
+                                                    id="refund-cancel-reservation-{{ reservation.id }}"
+                                                    onClick="refund_reservation({{reservation.id}})"
+                                                    >
+                                                Confirm
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Edit confirmation Modal  -->
+                            <div class="modal fade" id="edit-conf-modal-{{ reservation.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="edit-conf-modal-title-{{ reservation.id }}">Editing {{ reservation.vehicle_model }} reservation,Total: {{ reservation.total }},
+                                                {{ reservation.vehicle_price_day }}€ per day.</h5>
+                                            <button type="button"
+                                                    class="btn-close"
+                                                    data-bs-dismiss="modal"
+                                                    aria-label="Close">
+                                            </button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Hello user, you are one click away from editing your reservation.
+                                                If you want to proceed, click the Confirm button.
+                                                Otherwise, simply close this page.
+                                                Thank you.</p>
+                                            <button type="button"
+                                                    class="btn btn-outline-success"
+                                                    id="edit-conf-cancel-reservation-{{ reservation.id }}"
+                                                    onClick="edit_reservation({{reservation.id}})"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#edit-modal-{{ reservation.id }}"
+                                                    >
+                                                Confirm
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!--Edit Modal -->
+                        <div class="modal fade" id="edit-modal-{{ reservation.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ vehicle.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="edit-modal-title-{{ reservation.id }}">Editing {{ reservation.vehicle_model }} reservation, Total: {{ reservation.total }},
+                                                {{ reservation.vehicle_price_day }}€ per day.</h5>
+                                            <h6>Start date: {{ reservation.start_date }}</h6>
+                                            <h6>End date: {{ reservation.end_date }}</h6>
+                                            <p><h6>If you've changed your mind, just enter the same dates again and confirm.</h6></p>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Chose the dates for the reservation:
+                                            <a href="#"
+                                                 role="button"
+                                                 class="btn btn-info btn-sm"
+                                                 title="{{reservation.vehicle_model}} Unavailable dates  "
+                                                 data-bs-toggle="popover"
+                                                 data-bs-content="
+                                                    {% for date in unavailable_dates_by_vehicle.get(reservation.vehicle_id, []) %}
+                                                        {{ date }}<br>
+                                                    {% endfor %}">Unavailable dates</a></p>
+                                            <!-- Date selection (start and end dates) -->
+                                            <label for="modal-bg-date-{{ reservation.id }}" class="form-label">Start Date:</label>
+                                            <input type="date" class="form-control" min="{{ current_date }}" id="modal-bg-date-{{ reservation.id }}" data-vehicle-id="{{ reservation.vehicle_id }}"
+                                                   data-blocked-dates='{{ reservation.vehicle.reserve_dates|tojson|safe if reservation.vehicle.reserve_dates else "[]" }}'>
+                                            <br>
+                                            <label for="modal-end-date-{{ reservation.id }}" class="form-label">End Date:</label>
+                                            <input type="date" class="form-control" id="modal-end-date-{{ reservation.id }}" data-vehicle-id="{{ reservation.vehicle_id }}"
+                                                   data-blocked-dates='{{ reservation.vehicle.reserve_dates|tojson|safe if reservation.vehicle.reserve_dates else "[]" }}'>
+                                            <br>
+                                            <!-- Date confirmation button -->
+                                            <button class="btn btn-outline-success"
+                                                    id="confirm-dates-{{ reservation.id }}">
+                                                Confirm dates
+                                            </button>
+                                        </div>
+                                        <!-- Total price display -->
+                                        <div id="total-reservation-{{ reservation.id }}" style="margin-top: 10px; margin-left: 10px; margin-bottom: 10px;">
+                                            <strong>Total:</strong> <span id="total-price-{{ reservation.id }}">0</span> €
+                                        </div>
+                                        <!-- Button to proceed to payment -->
+                                        <div class="modal-footer">
+                                            <button class="btn btn-primary"
+                                                    id="proceed-payment-{{ reservation.id }}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#pay-modal-{{ reservation.id }}"
+                                                    disabled>
+                                                Proceed to Payment
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <!-- Payment Modal -->
+                        <div class="modal fade" id="pay-modal-{{ reservation.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ reservation.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title"
+                                            id="pay-modal-title-{{ reservation.id }}"></h5>
+                                            <strong>Editing Reservation {{ vehicle_model }}</strong>
+                                    </div>
+                                    <div class="modal-body">
+                                        <strong>Reservation info:</strong><br>
+                                        <p>{{ reservation.vehicle_model }}.</p>
+                                        <h5>Dates</h5>
+                                        <h6>From:</h6><span id="start-date-{{ reservation.id }}"></span>
+                                        <h6>To:</h6><span id="end-date-{{ reservation.id }}"></span>
+                                        <h6>Total:</h6><span id="pay-price-{{ reservation.id }}"> 0 </span> €.
+                                        <br>
+                                        <br>
+                                        <h5>Terms of Use - LUXURY WHEELS</h5>
+                                        <br>
+                                        <p>1. Introduction <br>
+                                            Welcome to LUXURY WHEELS. By using our services, you agree to the following terms and conditions.<br>
+                                            2. Rental Requirements<br>
+                                            The driver must be at least 18 years old.
+                                            A valid driver's license must be presented at the time of vehicle delivery. Otherwise, the rental will be canceled without a refund.<br>
+                                            3. Payments<br>
+                                            Payment must be made before the vehicle is delivered.
+                                            Payment is only available via Multibanco.<br>
+                                            4. Customer Responsibilities<br>
+                                            The customer is responsible for any fines, damages, or infractions during the rental period.
+                                            Insurance may cover certain damages, but the customer may be responsible for applicable deductibles.<br>
+                                            5. Cancellations and Refunds<br>
+                                            Cancellations made more than 48 hours in advance may be eligible for a full or partial refund.
+                                            Last-minute cancellations may not be refundable.<br>
+                                            6. Acceptance of Terms<br>
+                                            By clicking the "Payment" button, you confirm that you have read and accept these Terms of Use.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button class="btn btn-primary"
+                                                id="payment-{{ reservation.id }}">
+                                            Payment
+                                        </button>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Payment Reference Modal -->
+                        <div class="modal fade" id="pay-ref-modal-{{ reservation.id }}" tabindex="-1"  data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modal-title-{{ reservation.id }}" aria-hidden="true">
+                           <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h4 class="modal-title">Payment by Multibanco</h4>
+                                        <img src="./static/logo/mb.webp" alt="" width="50" height="50">
+                                        <button aria-label="Close"
+                                                class="btn-close"
+                                                id="pay-ref-{{ reservation.id }}"
+                                                data-bs-dismiss="modal"
+                                                type="button">
+                                        </button>
+
+                                    </div>
+                                    <div class="modal-body">
+                                        <h5> Reservation ID:</h5>
+                                        <div id="reserve-id-{{ reservation.id }}">{{ reservation.id }}</div>
+                                        <h5>Entity:</h5>
+                                        <div id="entity-{{ reservation.id }}" data-entity="12345">12345</div>
+                                        <h5>Reference:</h5>
+                                        <div id="reference-{{ reservation.id }}" data-reference="{{ random_reference }}">{{ random_reference }}</div>
+                                        <h5>Amount:</h5>
+                                        <div id="pay-ref-price-{{ reservation.id }}"> 0 </div> € (EURO)
+
+                                    </div>
+                                    <div class="modal-body">
+                                        <strong> After payment, please submit the receipt on the 'Reservation' page and confirm the payment. </strong>
+                                        <h6>The payment will be reviewed, and if everything is in order, the reservation will remain confirmed.
+                                            If the payment is not received or the receipt is incorrect within 24 hours,
+                                            the confirmation tab will be reset, and you will be able to submit a new file</h6>
+
+                                    </div>
+                                </div>
+                           </div>
+                        </div>
+                    </div>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <h5>You don't have any reservations.</h5>
+    {% endif %}
+
+<!-- Script to handle reservation deletion -->
+<script>
+    function delete_reservation(reservation_id) {
+        fetch('/delete_reservation', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reservation_id: reservation_id}),
+        })
+        .then((_res) => {
+            window.location.reload();
+        });
+    }
+</script>
+
+<!-- Script to handle payment confirmation -->
+<script>
+    function confirm_payment(reservation_id) {
+        const file_input = document.getElementById('formFile-' + reservation_id);
+        const file = file_input.files[0];
+
+        if (!file) {
+            alert("Please, choose one file before submitting.");
+            return;
+        }
+
+        const form_data = new FormData();
+        form_data.append('file', file);
+        form_data.append('reservation_id', reservation_id);
+
+        fetch('/payment_receipt', {
+            method: 'POST',
+            body: form_data
+        })
+
+       .then(response => response.json())
+       .then(data => {
+            if (data.success) {
+                 fetch('/confirm_payment', {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reservation_id: reservation_id }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('confirm-payment-' + reservation_id).disabled = true;
+                        document.getElementById('cancel-reservation-' + reservation_id).disabled = true;
+                        window.location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => console.error("Error:", error));
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    }
+</script>
+
+<!-- Script to handle refund request -->
+<script>
+    function refund_reservation(reservation_id) {
+        fetch('/refund_reservation', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reservation_id: reservation_id}),
+        })
+        .then((_res) => {
+            window.location.reload();
+        });
+    }
+</script>
+<!-- Script to set up the popover for unavailable dates -->
+<!-- and to handle edit request -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var popoverTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        popoverTriggerList.forEach(function (popoverTriggerEl) {
+            try {
+                new bootstrap.Popover(popoverTriggerEl, {
+                    html: true,
+                    trigger: 'hover'
+                });
+            } catch (error) {
+                console.error("Error initializing popover:", error);
+            }
+        });
+
+        let modal_id = localStorage.getItem("open_modal");
+        if (modal_id) {
+            let modal_element = document.getElementById(modal_id);
+            if (modal_element) {
+                try {
+                    let modal = new bootstrap.Modal(modal_element);
+                    modal.show();
+                } catch (error) {
+                    console.error("Error initializing modal:", error);
+                }
+            } else {
+                console.warn(`Modal with ID ${modal_id} not found.`);
+            }
+            localStorage.removeItem("open_modal");
+        }
+    });
+
+    function edit_reservation(reservation_id) {
+        fetch('/edit_reservation', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ reservation_id: reservation_id })
+        })
+        .then((_res) => {
+            localStorage.setItem("open_modal", `edit-modal-${reservation_id}`);
+
+            setTimeout(() => {
+                location.reload();
+            }, 100);
+        })
+        .catch((error) => console.error("Error trying to edit reservation:", error));
+    }
+
+</script>
+
+<!-- Validation for changing reservation dates -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+      document.addEventListener("change", function (event) {
+        if (event.target.matches("input[type='date']")) {
+            const blockedDatesRaw = event.target.getAttribute("data-blocked-dates");
+            const blockedDates = blockedDatesRaw && blockedDatesRaw.trim() !== "" ? JSON.parse(blockedDatesRaw) : [];
+
+            // Check if the selected date is unavailable
+            if (blockedDates.includes(event.target.value)) {
+                alert("This date is unavailable.Please check the vehicle's unavailability.");
+                event.target.value = "";
+            }
+          }
+      });
+  });
+</script>
+
+<!-- Logic to confirm dates and calculate the price -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        {% for reservation in reservations %}
+            document.getElementById('confirm-dates-{{ reservation.id }}').addEventListener('click', function() {
+                var start_date = document.getElementById('modal-bg-date-{{ reservation.id }}').value;
+                var end_date = document.getElementById('modal-end-date-{{ reservation.id }}').value;
+
+                if (!start_date || !end_date) {
+                    alert('Please, both dates must be selected.');
+                    return;
+                }
+
+                const start = new Date(start_date);
+                const end = new Date(end_date);
+
+                if (end <= start) {
+                    alert('Ending date must be after starting date');
+                    return;
+                }
+
+                const blockedDatesRaw = document.getElementById('modal-bg-date-{{ reservation.id }}').getAttribute("data-blocked-dates");
+                const blockedDates = blockedDatesRaw ? JSON.parse(blockedDatesRaw) : [];
+
+                let current_date = new Date(start);
+                let isDateBlocked = false;
+
+                while (current_date <= end) {
+                    const formattedDate = current_date.toISOString().split('T')[0];
+                    if (blockedDates.includes(formattedDate)) {
+                        isDateBlocked = true;
+                        break;
+                    }
+                    current_date.setDate(current_date.getDate() + 1);
+                }
+
+                if (isDateBlocked) {
+                    alert("One or more of the selected dates are already reserved. Please check the vehicle's unavailability.");
+                    return;
+                }
+
+                const days_difference = Math.ceil((end - start) / (1000 * 3600 * 24));
+                const price_per_day = {{ reservation.vehicle_price_day }};
+                const total = days_difference * price_per_day;
+
+                // Display price and dates in the payment modal
+                var start_dt = new Date(start).toLocaleDateString('en-US');
+                var end_dt = new Date(end).toLocaleDateString('en-US');
+
+                document.getElementById('total-price-{{ reservation.id}}').textContent = total;
+                document.getElementById('pay-price-{{ reservation.id }}').textContent = total;
+                document.getElementById('pay-ref-price-{{ reservation.id }}').textContent = total;
+
+                document.getElementById('start-date-{{ reservation.id }}').textContent = start_dt;
+                document.getElementById('end-date-{{ reservation.id }}').textContent = end_dt;
+
+                document.getElementById('proceed-payment-{{ reservation.id }}').disabled = false;
+            });
+
+            document.getElementById('payment-{{ reservation.id }}').addEventListener('click', function() {
+                var start_date = document.getElementById('modal-bg-date-{{ reservation.id }}').value;
+                var end_date = document.getElementById('modal-end-date-{{ reservation.id }}').value;
+
+                const data = {
+                    vehicle_id: {{ reservation.vehicle_id }},
+                    vehicle_model: {{ reservation.vehicle_model | tojson }},
+                    vehicle_price_day: {{ reservation.vehicle_price_day }},
+                    start_date: start_date,
+                    end_date: end_date,
+                    total: document.getElementById('pay-price-{{ reservation.id }}').textContent
+                };
+
+                console.log(data);
+
+                fetch('/create_reservations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert('Reservation successful!');
+
+                        var pay_modal = bootstrap.Modal.getInstance(document.getElementById('pay-modal-{{ reservation.id }}'));
+                        if (pay_modal) {
+                            pay_modal.hide();
+                        }
+
+                        document.getElementById('reserve-id-{{ reservation.id }}').textContent = data.reservation_id;
+
+                        var new_pay_modal = new bootstrap.Modal(document.getElementById('pay-ref-modal-{{ reservation.id }}'));
+                        new_pay_modal.show();
+                    } else {
+                        alert('There was an error with your reservation. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while processing your reservation. Please try again later.');
+                });
+
+            });
+                document.getElementById('pay-ref-{{ reservation.id }}').addEventListener('click', function() {
+                    var reserve_id = document.querySelector('#reserve-id-{{ reservation.id }}').textContent.trim();
+                    var entity = document.getElementById('entity-{{ reservation.id }}').dataset.entity;
+                    var reference = document.getElementById('reference-{{ reservation.id }}').dataset.reference;
+                    var amount = document.querySelector('#pay-ref-price-{{ reservation.id }}').textContent.trim();
+
+
+                const data = {
+                    reserve_id: reserve_id,
+                    entity: entity,
+                    reference: reference,
+                    amount: amount
+                };
+
+
+                fetch('/create_payment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data);
+                        var pay_ref_modal = bootstrap.Modal.getInstance(document.getElementById('pay-ref-modal-{{ reservation.id }}'));
+                        pay_ref_modal.hide();
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        console.error('An error occurred while processing your payment data. Please try again later.', error);
+                    });
+                });
+
+
+
+    {% endfor %}
+});
+</script>
+
+
+{% endblock %}

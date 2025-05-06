@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}LuxuryWheels - Rental History{% endblock %}
+
+{% block content %}
+    <h1 align="center">Rental History</h1>
+
+    <!-- Check if there are reservations (rental history) -->
+    {% if reservations %}
+    <ul class="list-group list-group-flush" id="reservations">
+        {% for reservation in reservations %}
+            <div class="card">
+                <div class="card-body">
+                    <div>
+                        {% if reservation.refund %}
+                            Vehicle: {{ reservation.vehicle_model }},
+                            Start date: {{ reservation.start_date }},
+                            End date: {{ reservation.end_date }}.
+                            Total: {{ reservation.total }}€
+                            Refund: Refunded
+                        {% else %}
+                            Vehicle: {{ reservation.vehicle_model }},
+                            Start date: {{ reservation.start_date }},
+                            End date: {{ reservation.end_date }}.
+                            Total: {{ reservation.total }}€
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </ul>
+    {% else %}
+        <!-- Message when no reservations are found -->
+        <h5>No old reservations found.</h5>
+    {% endif %}
+{% endblock %}
